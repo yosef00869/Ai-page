@@ -1,0 +1,498 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Bus Delay Prediction System</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+
+        header {
+            text-align: center;
+            color: white;
+            margin-bottom: 40px;
+        }
+
+        header h1 {
+            font-size: 2.5em;
+            margin-bottom: 10px;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
+        }
+
+        header p {
+            font-size: 1.2em;
+            opacity: 0.9;
+        }
+
+        .main-content {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 30px;
+            margin-bottom: 30px;
+        }
+
+        .card {
+            background: white;
+            border-radius: 20px;
+            padding: 30px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.3);
+        }
+
+        .card h2 {
+            color: #667eea;
+            margin-bottom: 25px;
+            font-size: 1.8em;
+            border-bottom: 3px solid #667eea;
+            padding-bottom: 10px;
+        }
+
+        .form-group {
+            margin-bottom: 20px;
+        }
+
+        label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: 600;
+            color: #333;
+        }
+
+        input, select {
+            width: 100%;
+            padding: 12px;
+            border: 2px solid #e0e0e0;
+            border-radius: 10px;
+            font-size: 16px;
+            transition: all 0.3s;
+        }
+
+        input:focus, select:focus {
+            outline: none;
+            border-color: #667eea;
+            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+        }
+
+        .btn-predict {
+            width: 100%;
+            padding: 15px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            border-radius: 10px;
+            font-size: 18px;
+            font-weight: bold;
+            cursor: pointer;
+            transition: transform 0.2s;
+        }
+
+        .btn-predict:hover {
+            transform: scale(1.02);
+        }
+
+        .btn-predict:active {
+            transform: scale(0.98);
+        }
+
+        .btn-predict:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+        }
+
+        .result-container {
+            display: none;
+        }
+
+        .result-container.show {
+            display: block;
+        }
+
+        .placeholder {
+            color: #999;
+            padding: 100px 20px;
+            text-align: center;
+        }
+
+        .placeholder svg {
+            width: 100px;
+            height: 100px;
+            opacity: 0.3;
+            margin-bottom: 20px;
+        }
+
+        .result-badge {
+            padding: 30px;
+            border-radius: 15px;
+            margin-bottom: 25px;
+        }
+
+        .result-badge.delayed {
+            background: #fee;
+            border: 3px solid #f44336;
+        }
+
+        .result-badge.ontime {
+            background: #efe;
+            border: 3px solid #4caf50;
+        }
+
+        .result-badge h3 {
+            font-size: 2em;
+            margin-bottom: 10px;
+        }
+
+        .result-badge.delayed h3 {
+            color: #c62828;
+        }
+
+        .result-badge.ontime h3 {
+            color: #2e7d32;
+        }
+
+        .probability {
+            font-size: 3em;
+            font-weight: bold;
+            margin: 15px 0;
+        }
+
+        .result-badge.delayed .probability {
+            color: #d32f2f;
+        }
+
+        .result-badge.ontime .probability {
+            color: #388e3c;
+        }
+
+        .progress-bar {
+            width: 100%;
+            height: 20px;
+            background: #e0e0e0;
+            border-radius: 10px;
+            overflow: hidden;
+            margin: 20px 0;
+        }
+
+        .progress-fill {
+            height: 100%;
+            transition: width 1s ease;
+        }
+
+        .progress-fill.delayed {
+            background: linear-gradient(90deg, #f44336, #e91e63);
+        }
+
+        .progress-fill.ontime {
+            background: linear-gradient(90deg, #4caf50, #8bc34a);
+        }
+
+        .factors {
+            background: #f5f5f5;
+            padding: 20px;
+            border-radius: 10px;
+            margin-top: 20px;
+        }
+
+        .factors h4 {
+            margin-bottom: 15px;
+            color: #333;
+        }
+
+        .factor-item {
+            display: flex;
+            justify-content: space-between;
+            padding: 10px;
+            background: white;
+            margin-bottom: 10px;
+            border-radius: 8px;
+        }
+
+        .factor-badge {
+            padding: 5px 15px;
+            border-radius: 20px;
+            font-size: 14px;
+            font-weight: bold;
+        }
+
+        .loading {
+            text-align: center;
+            padding: 40px;
+        }
+
+        .spinner {
+            border: 4px solid #f3f3f3;
+            border-top: 4px solid #667eea;
+            border-radius: 50%;
+            width: 50px;
+            height: 50px;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 20px;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .footer {
+            text-align: center;
+            color: white;
+            padding: 20px;
+            opacity: 0.9;
+        }
+
+        @media (max-width: 768px) {
+            .main-content {
+                grid-template-columns: 1fr;
+            }
+            
+            header h1 {
+                font-size: 1.8em;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>🚌 Bus Delay Prediction System</h1>
+            <p>AI-Powered Transportation Analytics</p>
+        </header>
+
+        <div class="main-content">
+            <!-- Form Card -->
+            <div class="card">
+                <h2>📍 Trip Information</h2>
+                <form id="predictionForm">
+                    <div class="form-group">
+                        <label>🚍 Bus Route</label>
+                        <select id="route" name="route">
+                            <option value="R01">Route R01</option>
+                            <option value="R02">Route R02</option>
+                            <option value="R03">Route R03</option>
+                            <option value="R04">Route R04</option>
+                            <option value="R05">Route R05</option>
+                            <option value="R06">Route R06</option>
+                            <option value="R07">Route R07</option>
+                            <option value="R08">Route R08</option>
+                        </select>
+                    </div>
+
+                    <div class="form-group">
+                        <label>🌤️ Weather Condition</label>
+                        <select id="weather" name="weather">
+                            <option value="sunny">Sunny</option>
+                            <option value="cloudy">Cloudy</option>
+                            <option value="rainy">Rainy</option>
+                        </select>
+                    </div>
+
+                    <div class="form-group">
+                        <label>👥 Number of Passengers</label>
+                        <input type="number" id="passengers" name="passengers" value="30" min="1" max="60">
+                    </div>
+
+                    <div class="form-group">
+                        <label>🕐 Hour (0-23)</label>
+                        <input type="number" id="hour" name="hour" value="8" min="0" max="23">
+                    </div>
+
+                    <div class="form-group">
+                        <label>📅 Day of Week</label>
+                        <select id="day" name="day">
+                            <option value="0">Monday</option>
+                            <option value="1">Tuesday</option>
+                            <option value="2">Wednesday</option>
+                            <option value="3">Thursday</option>
+                            <option value="4">Friday</option>
+                            <option value="5">Saturday</option>
+                            <option value="6">Sunday</option>
+                        </select>
+                    </div>
+
+                    <div class="form-group">
+                        <label>📍 Latitude</label>
+                        <input type="number" id="latitude" name="latitude" value="30.0" step="0.1">
+                    </div>
+
+                    <div class="form-group">
+                        <label>📍 Longitude</label>
+                        <input type="number" id="longitude" name="longitude" value="31.0" step="0.1">
+                    </div>
+
+                    <button type="submit" class="btn-predict">🔮 Predict Delay</button>
+                </form>
+            </div>
+
+            <!-- Result Card -->
+            <div class="card">
+                <h2>📊 Prediction Result</h2>
+                
+                <div id="placeholder" class="placeholder">
+                    <svg fill="currentColor" viewBox="0 0 20 20">
+                        <path d="M10 3.5a1.5 1.5 0 013 0V4a1 1 0 001 1h3a1 1 0 011 1v3a1 1 0 01-1 1h-.5a1.5 1.5 0 000 3h.5a1 1 0 011 1v3a1 1 0 01-1 1h-3a1 1 0 01-1-1v-.5a1.5 1.5 0 00-3 0v.5a1 1 0 01-1 1H6a1 1 0 01-1-1v-3a1 1 0 00-1-1h-.5a1.5 1.5 0 010-3H4a1 1 0 001-1V6a1 1 0 011-1h3a1 1 0 001-1v-.5z"/>
+                    </svg>
+                    <p>Enter trip details and click predict</p>
+                </div>
+
+                <div id="loading" class="loading" style="display: none;">
+                    <div class="spinner"></div>
+                    <p>Analyzing data...</p>
+                </div>
+
+                <div id="result" class="result-container">
+                    <!-- Result will be inserted here -->
+                </div>
+            </div>
+        </div>
+
+        <div class="footer">
+            <p>Powered by Random Forest ML Model | Accuracy: ~85%</p>
+        </div>
+    </div>
+
+    <script>
+        document.getElementById('predictionForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            
+            // Get form data
+            const formData = {
+                route: document.getElementById('route').value,
+                weather: document.getElementById('weather').value,
+                passengers: document.getElementById('passengers').value,
+                hour: document.getElementById('hour').value,
+                day: document.getElementById('day').value,
+                latitude: document.getElementById('latitude').value,
+                longitude: document.getElementById('longitude').value
+            };
+
+            // Show loading
+            document.getElementById('placeholder').style.display = 'none';
+            document.getElementById('result').classList.remove('show');
+            document.getElementById('loading').style.display = 'block';
+
+            try {
+                // Send request to backend
+                const response = await fetch('/predict', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify(formData)
+                });
+
+                const data = await response.json();
+
+                // Hide loading
+                document.getElementById('loading').style.display = 'none';
+
+                if (data.success) {
+                    displayResult(data, formData);
+                } else {
+                    alert('Error: ' + data.error);
+                }
+            } catch (error) {
+                document.getElementById('loading').style.display = 'none';
+                alert('Connection error');
+                console.error(error);
+            }
+        });
+
+        function displayResult(data, formData) {
+            const isLate = data.is_late === 1;
+            const probability = data.probability;
+            const peakType = data.peak_type;
+
+            const isRushHour = (formData.hour >= 7 && formData.hour <= 9) || 
+                              (formData.hour >= 16 && formData.hour <= 19);
+            const isWeekend = formData.day >= 5;
+
+            const resultHTML = `
+                <div class="result-badge ${isLate ? 'delayed' : 'ontime'}">
+                    <h3>${isLate ? '⚠️ Bus Will Be Delayed' : '✅ Bus On Time'}</h3>
+                    <div class="probability">${probability}%</div>
+                    <p>Prediction Confidence</p>
+                    <div class="progress-bar">
+                        <div class="progress-fill ${isLate ? 'delayed' : 'ontime'}" 
+                             style="width: ${probability}%"></div>
+                    </div>
+                </div>
+
+                <div class="factors">
+                    <h4>🔍 Contributing Factors</h4>
+                    
+                    <div class="factor-item">
+                        <span>Peak Period</span>
+                        <span class="factor-badge" style="background: #e3f2fd; color: #1976d2;">
+                            ${peakType === 'morning_peak' ? 'Morning Peak' : 
+                              peakType === 'evening_peak' ? 'Evening Peak' : 'Off Peak'}
+                        </span>
+                    </div>
+
+                    <div class="factor-item">
+                        <span>Rush Hour</span>
+                        <span class="factor-badge" style="background: ${isRushHour ? '#fff3e0' : '#f5f5f5'}; 
+                                                         color: ${isRushHour ? '#e65100' : '#666'};">
+                            ${isRushHour ? 'Yes' : 'No'}
+                        </span>
+                    </div>
+
+                    <div class="factor-item">
+                        <span>Weather</span>
+                        <span class="factor-badge" style="background: ${formData.weather === 'rainy' ? '#e1f5fe' : '#fff9c4'}; 
+                                                         color: ${formData.weather === 'rainy' ? '#0277bd' : '#f57f17'};">
+                            ${formData.weather === 'sunny' ? '☀️ Sunny' : 
+                              formData.weather === 'cloudy' ? '☁️ Cloudy' : '🌧️ Rainy'}
+                        </span>
+                    </div>
+
+                    <div class="factor-item">
+                        <span>Passenger Load</span>
+                        <span class="factor-badge" style="background: ${formData.passengers > 40 ? '#ffebee' : 
+                                                                          formData.passengers > 25 ? '#fff9c4' : '#e8f5e9'}; 
+                                                         color: ${formData.passengers > 40 ? '#c62828' : 
+                                                                  formData.passengers > 25 ? '#f57f17' : '#2e7d32'};">
+                            ${formData.passengers > 40 ? 'High' : 
+                              formData.passengers > 25 ? 'Medium' : 'Low'}
+                        </span>
+                    </div>
+
+                    <div class="factor-item">
+                        <span>Weekend</span>
+                        <span class="factor-badge" style="background: ${isWeekend ? '#f3e5f5' : '#f5f5f5'}; 
+                                                         color: ${isWeekend ? '#7b1fa2' : '#666'};">
+                            ${isWeekend ? 'Yes' : 'No'}
+                        </span>
+                    </div>
+                </div>
+
+                <div style="background: #e8eaf6; padding: 20px; border-radius: 10px; margin-top: 20px;">
+                    <h4 style="color: #3949ab; margin-bottom: 10px;">💡 Recommendation</h4>
+                    <p style="color: #5c6bc0;">
+                        ${isLate ? 
+                          'Consider taking an earlier bus or alternative route. Allow extra travel time.' : 
+                          'Bus is expected to arrive on schedule. Safe travels!'}
+                    </p>
+                </div>
+            `;
+
+            document.getElementById('result').innerHTML = resultHTML;
+            document.getElementById('result').classList.add('show');
+        }
+    </script>
+</body>
+</html>
